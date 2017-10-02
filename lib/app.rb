@@ -18,9 +18,7 @@ class Controller
     inventory.each_with_index do |row1, index1|
       inventory.each_with_index do |row2, index2|
         next if index1 >= index2
-        if identical_product_customer_measure?(row1, row2)
-          @identical_pairs << [row1, row2]
-        end
+        add_to_identical_pairs(row1, row2)
       end
     end
   end
@@ -32,9 +30,7 @@ class Controller
         add_to_overlaps(pair_one, pair_two)
       else
         parse_dates(pair_one, pair_two)
-        if @pair_one_date_range.include?(@pair_two_valid_from)
-          add_to_overlaps(pair_one, pair_two)
-        end
+        add_to_overlaps(pair_one, pair_two) if date_overlaps?
       end
     end
   end
@@ -42,14 +38,28 @@ class Controller
   def update_dates
     overlaps.each do |pair_one, pair_two|
       parse_dates(pair_one, pair_two)
-      row = Inventory.get(pair_one[:id])
-      if pair_one[:valid_to] == row[:valid_to] || row[:valid_to] == 99999999
-        row.update(valid_to: (@pair_two_valid_from - 1).strftime('%Y%m%d'))
-      end
+      check_and_update(pair_one)
     end
   end
 
   private
+
+  def check_and_update(pair_one)
+    row = Inventory.get(pair_one[:id])
+    if pair_one[:valid_to] == row[:valid_to] || row[:valid_to] == 99999999
+      row.update(valid_to: (@pair_two_valid_from - 1).strftime('%Y%m%d'))
+    end
+  end
+
+  def date_overlaps?
+    @pair_one_date_range.include?(@pair_two_valid_from)
+  end
+
+  def add_to_identical_pairs(row1, row2)
+    if identical_product_customer_measure?(row1, row2)
+      @identical_pairs << [row1, row2]
+    end
+  end
 
   def identical_product_customer_measure?(row1, row2)
     (row1[:product] == row2[:product]) &&
